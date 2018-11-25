@@ -18,6 +18,7 @@ import ast
 import time
 import uuid
 from threading import Thread
+from threading import Lock
 
 FILE_PATH = './chat.txt'
 COMPLETED_FILE_PATH = './completed_message.txt'
@@ -35,6 +36,7 @@ class Chat:
         Args:
             next_message: FIFO를 위한 구분자
         """
+        self.lock = Lock()
         self.next_message = next_message
 
     def get_all_messages(self, file_path=None):
@@ -123,36 +125,11 @@ class Chat:
                 return
 
     def do(self):
-        while len(self.get_all_messages()) > 0:
-            self.send_message()
-            if len(self.get_all_messages()) == 0:
-                print('끝')
-
-    # def do_something(self):
-    #     while len(self.get_all_messages()) > 0:
-    #         self.print_message()
-    #         if len(self.get_all_messages()) == 0:
-    #             print('끝')
-    #
-    # def print_message(self, file_path=None):
-    #     if file_path is None:
-    #         file_path = FILE_PATH
-    #
-    #     text_file = open(file_path, 'r+')
-    #     COMPLETED_FILE_PATH = './completed_message.txt'
-    #     all_messages = text_file.readlines()
-    #     cur_message = all_messages[0]
-    #     if len(all_messages) == 0:
-    #         return
-    #     else:
-    #         print(cur_message)
-    #         self.store_completed_message(cur_message, COMPLETED_FILE_PATH)
-    #         text_file.seek(0)
-    #         for message in all_messages:
-    #             if message != cur_message:
-    #                 text_file.write(message)
-    #         text_file.truncate()
-    #         text_file.close()
+        with self.lock:
+            while len(self.get_all_messages()) > 0:
+                self.send_message()
+                if len(self.get_all_messages()) == 0:
+                    print('끝')
 
 def make_messages(num_of_messages):
     '''다수의 메세지를 생성함으로써 테스트를 할 수 있는 환경 구성
@@ -170,31 +147,14 @@ def make_messages(num_of_messages):
     return messages
 
 
-def send_with_multithread(my_function):
-    """multi thread방식으로 처리하기위한 함수
-
-    Args:
-        my_function : 처리가 될 함수
-
-    """
-    th1 = Thread(target=my_function)
-    th2 = Thread(target=my_function)
-    th3 = Thread(target=my_function)
-    th4 = Thread(target=my_function)
-    th5 = Thread(target=my_function)
-
-    th4.start()
-    th2.start()
-    th3.start()
-    th1.start()
-    th5.start()
-
-    th3.join()
-    th4.join()
-    th2.join()
-    th1.join()
-    th5.join()
-
+def run_threads(func):
+    threads = []
+    for i in range(5):
+        thread = Thread(target=func)
+        threads.append(thread)
+        thread.start()
+    for thread in threads:
+        thread.join()
 
 if __name__ == '__main__':
     while True:
@@ -276,7 +236,7 @@ if __name__ == '__main__':
         else:
             print('-----멀티 쓰레드 방식으로 처리시작')
             s_time = time.time()
-            send_with_multithread(chat.do())
+            run_threads(chat.do())
             print('ㅡmulti thread time = ', time.time() - s_time)
             print("-----message들을 처리했습니다.")
             os.remove(FILE_PATH)
